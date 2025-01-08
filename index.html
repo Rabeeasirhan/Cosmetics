@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ניהול תורים למכון קוסמטיקה</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+      direction: rtl;
+      text-align: right;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background-color: #ffffff;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    input, select, button {
+      padding: 10px;
+      margin-top: 5px;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 20px;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #work-schedule {
+      background-color: #28a745;
+    }
+
+    #work-schedule:hover {
+      background-color: #218838;
+    }
+
+    .confirmation {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    .blocked-time {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    #whatsapp-number {
+      margin-top: 10px;
+    }
+
+    .calendar-button {
+      background-color: #ff9800;
+      color: white;
+      border: none;
+      padding: 10px;
+      cursor: pointer;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+
+    .calendar-button:hover {
+      background-color: #f57c00;
+    }
+
+    #whatsapp-button {
+      background-color: #25D366;
+      margin-top: 10px;
+    }
+
+    #whatsapp-button:hover {
+      background-color: #1da656;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ניהול תורים למכון קוסמטיקה</h1>
+    <form id="appointment-form">
+      <label for="clientName">שם לקוח:</label>
+      <input type="text" id="clientName" name="clientName" placeholder="שם לקוח" required>
+
+      <label for="date">תאריך:</label>
+      <input type="date" id="date" name="date" required>
+
+      <label for="time">שעה:</label>
+      <select id="time" name="time" required>
+        <option value="">בחר שעה</option>
+      </select>
+
+      <label for="type">סוג הטיפול:</label>
+      <input type="text" id="type" name="type" placeholder="סוג הטיפול" required>
+
+      <label>
+        <input type="checkbox" id="isSeries" name="isSeries"> סדרת טיפולים
+      </label>
+
+      <div id="series-options" class="hidden">
+        <label for="frequency">תדירות:</label>
+        <select id="frequency" name="frequency">
+          <option value="">בחר תדירות</option>
+          <option value="שבוע">שבוע</option>
+          <option value="שבועיים">שבועיים</option>
+          <option value="חודש">חודש</option>
+        </select>
+
+        <label for="seriesLength">אורך הסדרה:</label>
+        <input type="number" id="seriesLength" name="seriesLength" placeholder="אורך הסדרה">
+      </div>
+
+      <button type="submit">קבע תור</button>
+    </form>
+
+    <div id="confirmation-message" class="confirmation hidden">
+      התור נקבע בהצלחה!
+      <button id="add-to-calendar" class="calendar-button">הוסף ללוח שנה</button>
+    </div>
+
+    <button id="work-schedule">סידור עבודה מחר</button>
+    <div id="schedule-display" class="hidden">
+      <input type="tel" id="whatsapp-number" placeholder="מספר וואצאפ (לדוגמה: 972501234567)" />
+      <table id="schedule-table">
+        <thead>
+          <tr>
+            <th>שעה</th>
+            <th>שם לקוח</th>
+            <th>סוג טיפול</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-body">
+        </tbody>
+      </table>
+      <button id="whatsapp-button">שלח בווצאפ</button>
+    </div>
+  </div>
+
+  <script>
+    // מערך של כל התורים שנקבעו
+    let appointments = [];
+    
+    // שעות פעילות
+    const workingHours = [
+      "09:00", "10:00", "11:00", "12:00", "13:00", 
+      "14:00", "15:00", "16:00", "17:00", "18:00"
+    ];
+
+    // אתחול שעות זמינות
+    function initializeTimeSlots() {
+      const timeSelect = document.getElementById('time');
+      timeSelect.innerHTML = '<option value="">בחר שעה</option>';
+      workingHours.forEach(hour => {
+        timeSelect.innerHTML += `<option value="${hour}">${hour}</option>`;
+      });
+    }
+
+    // בדיקה האם השעה תפוסה
+    function isTimeSlotTaken(date, time) {
+      return appointments.some(app => app.date === date && app.time === time);
+    }
+
+    // עדכון שעות זמינות בהתאם לתאריך
+    function updateAvailableTimeSlots() {
+      const selectedDate = document.getElementById('date').value;
+      const timeSelect = document.getElementById('time');
+      const options = timeSelect.getElementsByTagName('option');
+
+      for (let i = 1; i < options.length; i++) {
+        const time = options[i].value;
+        if (isTimeSlotTaken(selectedDate, time)) {
+          options[i].disabled = true;
+          options[i].classList.add('blocked-time');
+        } else {
+          options[i].disabled = false;
+          options[i].classList.remove('blocked-time');
+        }
+      }
+    }
+
+    // פונקציה ליצירת קובץ ICS
+    function createICSFile(appointment) {
+      const startDate = new Date(`${appointment.date}T${appointment.time}`);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // מוסיף שעה אחת
+
+      function formatDate(date) {
+        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      }
+
+      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+SUMMARY:${appointment.type} - ${appointment.clientName}
+DTSTART:${formatDate(startDate)}
+DTEND:${formatDate(endDate)}
+DESCRIPTION:טיפול ${appointment.type}
+LOCATION:מכון קוסמטיקה
+BEGIN:VALARM
+TRIGGER:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:תזכורת: יש לך תור בעוד שעה
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+
+      return icsContent;
+    }
+
+    // אתחול האפליקציה
+    initializeTimeSlots();
+
+    // מאזין לשינוי תאריך
+    document.getElementById('date').addEventListener('change', updateAvailableTimeSlots);
+
+    // מאזין לשינוי בתיבת הסימון של סדרת טיפולים
+    document.getElementById('isSeries').addEventListener('change', function() {
+      const seriesOptions = document.getElementById('series-options');
+      seriesOptions.classList.toggle('hidden', !this.checked);
+    });
+
+    // מאזין לכפתור הוספה ללוח שנה
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.id === 'add-to-calendar') {
+        const lastAppointment = appointments[appointments.length - 1];
+        const icsContent = createICSFile(lastAppointment);
+        
+        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `appointment_${lastAppointment.date}.ics`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    });
+
+    // טיפול בשליחת הטופס
+    document.getElementById('appointment-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      
+      const appointment = {
+        clientName: formData.get('clientName'),
+        date: formData.get('date'),
+        time: formData.get('time'),
+        type: formData.get('type'),
+        isSeries: formData.get('isSeries') === 'on',
+        frequency: formData.get('frequency'),
+        seriesLength: formData.get('seriesLength')
+      };
+
+      // הוספת התור למערך התורים
+      appointments.push(appointment);
+
+      // אם זו סדרת טיפולים, הוסף את כל התורים העתידיים
+      if (appointment.isSeries) {
+        let nextDate = new Date(appointment.date);
+        const seriesLength = parseInt(appointment.seriesLength);
+        
+        for (let i = 1; i < seriesLength; i++) {
+          switch(appointment.frequency) {
+            case 'שבוע':
+              nextDate.setDate(nextDate.getDate() + 7);
+              break;
+            case 'שבועיים':
+              nextDate.setDate(nextDate.getDate() + 14);
+              break;
+            case 'חודש':
+              nextDate.setMonth(nextDate.getMonth() + 1);
+              break;
+          }
+
+          appointments.push({
+            ...appointment,
+            date: nextDate.toISOString().split('T')[0]
+          });
+        }
+      }
+
+      // עדכון השעות הזמינות
+      updateAvailableTimeSlots();
+
+      // הצגת הודעת אישור
+      document.getElementById('confirmation-message').classList.remove('hidden');
+      
+      // איפוס הטופס
+      event.target.reset();
+      
+      // הסתרת ההודעה אחרי 10 שניות
+      setTimeout(() => {
+        document.getElementById('confirmation-message').classList.add('hidden');
+      }, 10000);
+    });
+
+    // הצגת סידור העבודה
+    document.getElementById('work-schedule').addEventListener('click', function() {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      const tomorrowAppointments = appointments.filter(app => app.date === tomorrowStr)
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      const scheduleBody = document.getElementById('schedule-body');
+      scheduleBody.innerHTML = '';
+
+      tomorrowAppointments.forEach(app => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${app.time}</td>
+          <td>${app.clientName}</td>
+          <td>${app.type}</td>
+        `;
+        scheduleBody.appendChild(row);
+      });
+
+      document.getElementById('schedule-display').classList.remove('hidden');
+    });
+
+    // שליחה לוואצאפ
+    document.getElementById('whatsapp-button').addEventListener('click', function() {
+      const phoneNumber = document.getElementById('whatsapp-number').value;
+      if (!phoneNumber) {
+        alert('נא להזין מספר וואצאפ');
+        return;
+      }
+
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      
+      const tomorrowAppointments = appointments.filter(app => app.date === tomorrowStr)
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      const scheduleText = `סידור עבודה ליום ${tomorrowStr}:\n` +
+        tomorrowAppointments.map(app => 
+          `שעה: ${app.time}\nשם לקוח: ${app.clientName}\nסוג טיפול: ${app.type}\n`
+        ).join('\n');
+
+      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(scheduleText)}`;
+      window.open(whatsappUrl, '_blank');
+    });
+  </script>
+</body>
+</html>
